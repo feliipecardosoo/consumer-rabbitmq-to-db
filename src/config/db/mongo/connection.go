@@ -20,6 +20,7 @@ var MongoClient *mongo.Client
 // Cria um contexto com timeout de 10 segundos para a conexão e verifica se o MongoDB está acessível (Ping).
 // Em caso de sucesso, MongoClient estará pronto para uso.
 func InitMongoConnection() {
+
 	uri := os.Getenv("MONGO_URI")
 	if uri == "" {
 		log.Fatal("MONGO_URI não configurado")

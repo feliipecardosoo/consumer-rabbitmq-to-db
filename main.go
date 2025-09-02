@@ -4,6 +4,8 @@ import (
 	"consumer-rabbitmq-to-db/src/config/db/mongo"
 	"consumer-rabbitmq-to-db/src/config/env"
 	"consumer-rabbitmq-to-db/src/config/rabbitmq"
+	"consumer-rabbitmq-to-db/src/exec/consumer"
+	"consumer-rabbitmq-to-db/src/exec/repository"
 	"log"
 )
 
@@ -12,7 +14,7 @@ func main() {
 	env.LoadEnv()
 
 	// Conexão com RabbitMQ
-	rm := rabbitmq.InitPublisher() // usa singleton
+	rm := rabbitmq.InitPublisher()
 	defer func() {
 		if err := rm.Close(); err != nil {
 			log.Println("Erro ao fechar RabbitMQ:", err)
@@ -21,4 +23,21 @@ func main() {
 
 	// Conexão MongoDB
 	mongo.InitMongoConnection()
+
+	// Cria instância do repository
+	repo := repository.NewlogRepository()
+
+	// Cria instância do consumer
+	cons := consumer.NewConsumerExec()
+
+	// Define batch
+	batchSize := 10
+
+	// Inicia consumer contínuo em goroutine
+	cons.ConsumerLogFila(rm, repo, batchSize)
+
+	log.Println("Consumer iniciado. Aplicação rodando continuamente...")
+
+	// Mantém a aplicação viva indefinidamente
+	select {}
 }
