@@ -2,7 +2,7 @@ package model
 
 // MessageDB representa uma mensagem a ser inserida no MongoDB
 type MessageDB struct {
-	ID        string `bson:"id"`        // Campo "id" no MongoDB
+	ID        string `bson:"idMembro"`  // Campo "id" no MongoDB
 	Message   string `bson:"message"`   // Campo "message" no MongoDB
 	Timestamp string `bson:"timestamp"` // Campo "timestamp" no MongoDB
 }

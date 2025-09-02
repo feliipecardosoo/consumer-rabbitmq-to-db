@@ -5,7 +5,7 @@ package model
 // para inserção no MongoDB.
 type Message struct {
 	// ID é o identificador único da mensagem
-	ID string `json:"id"`
+	ID string `json:"idMembro"`
 
 	// Message é o conteúdo textual da mensagem
 	Message string `json:"message"`
