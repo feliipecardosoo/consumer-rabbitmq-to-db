@@ -35,68 +35,64 @@ func carregarEnv() string {
 // repo: instância de LogRepository
 // batchSize: tamanho máximo de cada batch
 func (consumer *consumerExec) ConsumerLogFila(rm *rabbitmq.RabbitMQ, repo repository.LogRepository, batchSize int) {
-	go func() {
-		for {
-			queueName := carregarEnv()
-			msgs, err := rm.Consume(queueName)
-			if err != nil {
-				log.Println("[ConsumerLogFila] Erro ao consumir fila:", err, "- tentando novamente em 5s")
-				time.Sleep(5 * time.Second)
+	queueName := carregarEnv()
+
+	msgs, err := rm.Consume(queueName)
+	if err != nil {
+		log.Println("[ConsumerLogFilaOneShot] Erro ao consumir fila:", err)
+		return
+	}
+
+	log.Printf("[ConsumerLogFilaOneShot] Fila '%s' consumida com sucesso", queueName)
+
+	var buffer []model.Message
+	timer := time.NewTimer(3 * time.Second)
+
+	sendBatch := func() {
+		if len(buffer) == 0 {
+			return
+		}
+		log.Printf("[ConsumerLogFilaOneShot] Enviando batch de %d mensagens para o Mongo", len(buffer))
+		if err := repo.InsertBatch(buffer); err != nil {
+			log.Println("[ConsumerLogFilaOneShot] Erro ao inserir batch:", err)
+		} else {
+			log.Printf("[ConsumerLogFilaOneShot] Batch de %d mensagens inserido com sucesso", len(buffer))
+		}
+		buffer = buffer[:0]
+	}
+
+	for {
+		select {
+		case msg, ok := <-msgs:
+			if !ok {
+				// Canal fechado, envia o que restou e termina
+				sendBatch()
+				log.Println("[ConsumerLogFilaOneShot] Canal de mensagens fechado. Finalizando...")
+				return
+			}
+
+			var m model.Message
+			if err := json.Unmarshal(msg.Body, &m); err != nil {
+				log.Println("[ConsumerLogFilaOneShot] Erro ao decodificar mensagem:", err)
 				continue
 			}
 
-			log.Printf("[ConsumerLogFila] Fila '%s' consumida com sucesso", queueName)
+			buffer = append(buffer, m)
+			log.Printf("[ConsumerLogFilaOneShot] Mensagem adicionada ao buffer (tamanho atual: %d)", len(buffer))
 
-			var buffer []model.Message
-			timer := time.NewTimer(3 * time.Second)
-
-			sendBatch := func() {
-				if len(buffer) == 0 {
-					return
+			if len(buffer) >= batchSize {
+				sendBatch()
+				if !timer.Stop() {
+					<-timer.C
 				}
-				log.Printf("[ConsumerLogFila] Enviando batch de %d mensagens para o Mongo", len(buffer))
-				if err := repo.InsertBatch(buffer); err != nil {
-					log.Println("[ConsumerLogFila] Erro ao inserir batch:", err)
-				} else {
-					log.Printf("[ConsumerLogFila] Batch de %d mensagens inserido com sucesso", len(buffer))
-				}
-				buffer = buffer[:0]
+				timer.Reset(3 * time.Second)
 			}
 
-			for {
-				select {
-				case msg, ok := <-msgs:
-					if !ok {
-						sendBatch()
-						log.Println("[ConsumerLogFila] Canal de mensagens fechado, reconectando...")
-						time.Sleep(3 * time.Second)
-						break
-					}
-
-					var m model.Message
-					if err := json.Unmarshal(msg.Body, &m); err != nil {
-						log.Println("[ConsumerLogFila] Erro ao decodificar mensagem:", err)
-						continue
-					}
-
-					buffer = append(buffer, m)
-					log.Printf("[ConsumerLogFila] Mensagem adicionada ao buffer (tamanho atual: %d)", len(buffer))
-
-					if len(buffer) >= batchSize {
-						sendBatch()
-						if !timer.Stop() {
-							<-timer.C
-						}
-						timer.Reset(3 * time.Second)
-					}
-
-				case <-timer.C:
-					if len(buffer) > 0 {
-						sendBatch()
-					}
-					timer.Reset(3 * time.Second)
-				}
-			}
+		case <-timer.C:
+			// Timeout de 3 segundos sem novas mensagens
+			sendBatch()
+			log.Println("[ConsumerLogFilaOneShot] Timeout atingido. Finalizando...")
+			return
 		}
-	}()
+	}
 }

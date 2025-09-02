@@ -33,11 +33,6 @@ func main() {
 	// Define batch
 	batchSize := 10
 
-	// Inicia consumer contínuo em goroutine
 	cons.ConsumerLogFila(rm, repo, batchSize)
-
-	log.Println("Consumer iniciado. Aplicação rodando continuamente...")
-
-	// Mantém a aplicação viva indefinidamente
-	select {}
+	log.Println("Consumer finalizado.")
 }
