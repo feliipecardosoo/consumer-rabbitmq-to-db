@@ -3,7 +3,7 @@
 Este projeto é um **consumer** que lê mensagens de uma fila do RabbitMQ e insere em lote no MongoDB. Ele foi desenvolvido em Go e suporta envio em **batches** com controle de tempo.
 
 > **Observação sobre execução contínua vs agendada:**  
-> Existe uma branch separada `goroutine-consumer
+> Existe uma branch separada `goroutine_consumer
 ` onde o consumer utiliza **goroutines** para processar continuamente as mensagens, mantendo o sistema sempre ativo.  
 > Para este exemplo específico, o objetivo é rodar o consumer **uma vez por dia** usando um cron (ou GitHub Actions), portanto o programa é executado, processa as mensagens disponíveis e termina.
 
